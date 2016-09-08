@@ -78,6 +78,15 @@ class MessageDispatcher(object):
             return
 
         botname = self._client.login_data['self']['name']
+
+        bot_id = msg.get('bot_id', '')
+        BITBUCKET_BOT_ID = "B27HWL6NN"
+        from_bot = False
+        if bot_id == BITBUCKET_BOT_ID:
+            msg['user'] = "U1QD5JQBS" #dongjun
+            msg['text'] = self._get_bot_attach_text(msg)
+            from_bot = True
+
         try:
             msguser = self._client.users.get(msg['user'])
             username = msguser['name']
@@ -90,7 +99,7 @@ class MessageDispatcher(object):
         if username == botname or username == u'slackbot':
             return
 
-        msg_respond_to = self.filter_text(msg)
+        msg_respond_to = self.filter_text(msg, from_bot=from_bot)
         if msg_respond_to:
             self._pool.add_task(('respond_to', msg_respond_to))
         else:
@@ -102,8 +111,20 @@ class MessageDispatcher(object):
     def _get_bot_name(self):
         return self._client.login_data['self']['name']
 
-    def filter_text(self, msg):
-        full_text = msg.get('text', '')
+    def _get_bot_attach_text(self, msg):
+        attachments = msg.get('attachments')[0]
+        info = attachments.get('pretext')
+        title = attachments.get('title')
+        content = attachments.get('text')
+
+        full_text = info + "\n" + title + "\n" + content
+        return full_text
+
+    def filter_text(self, msg, from_bot=False):
+        if from_bot:
+            full_text = self._get_bot_attach_text(msg)
+        else:
+            full_text = msg.get('text', '')
         channel = msg['channel']
         bot_name = self._get_bot_name()
         bot_id = self._get_bot_id()
@@ -111,6 +132,7 @@ class MessageDispatcher(object):
 
         if channel[0] == 'C' or channel[0] == 'G':
             if not m:
+                print("return m")
                 return
 
             matches = m.groupdict()
